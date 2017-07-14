@@ -1,0 +1,145 @@
+---
+title: "Simulated Data Statistics"
+author: "bydmitry"
+output: html_document
+---
+
+```{r include=FALSE}
+library(ggplot2)
+library(plotly)
+library(GGally)
+library(survival)
+library(survminer)
+library(ggplot2)
+library(reshape)
+library(cowplot)
+library(broom)
+library(Epi)
+source('mymisc.R')
+
+library(scales)
+library(RColorBrewer)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Load data:
+
+```{r echo=TRUE, warning=FALSE}
+fileName  <- 'linear_5K.csv' #'gaussian_risk.csv'
+folder    <- '/Users/bychkov/GDD/Projects/simu/simulated_data/'
+sim.data  <- read.csv(paste0(folder, fileName))
+```
+
+```{r echo=FALSE, warning=FALSE}
+sim.data$c  <- as.integer(!as.logical(sim.data$e)) 
+
+mean_time <- mean(sim.data$t)
+lmbd      <- paste0( "$\\lambda = ", round(1/mean_time,3), "$" )
+mean_t    <- paste0( "$E(t) = \\frac{1}{\\lambda} = ", round(mean_time,3), "$" )
+c_rate    <- paste0( sum(sim.data$c)/nrow(sim.data)*100, ' ', '%' )
+```
+
+**In case of Exponential failure time distribution: **  
+
+`r lmbd`  
+
+Mean survival time:  `r mean_t`
+
+Censoring rate: `r c_rate`
+
+```{r echo=FALSE, warning=FALSE}
+survFit.observed  <- survfit( Surv( time = sim.data$t, event = sim.data$e ) ~ 1 )
+survFit.failure   <- survfit( Surv( time = sim.data$f, event = sim.data$e ) ~ 1 )
+```
+
+### Survival Distributions:
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+km  <- plot_KMs( survFit.observed, h = 500, w = 900 )
+ds  <- plot_time_hist( sim.data, nbinsx = 35, h = 500, w = 900)
+subplot( widths = c(0.5,0.5),
+   style(km, showlegend = FALSE),
+   style(ds, showlegend = FALSE),
+   nrows = 1, margin = 0.05
+ ) %>% layout(title='', margin = plyMargins,
+  annotations = list( 
+    list(x = 0.1 , y = 1.1, text = "Kaplan-Meier Estimator", showarrow = F, xref='paper', yref='paper'),
+    list(x = 0.85 , y = 1.1, text = "Failure-Time Distributions", showarrow = F, xref='paper', yref='paper')))
+```
+
+
+### Risk & Duration-to-Failure:
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+subplot( widths = c(0.5,0.5),
+   plot_ly(width=900, height=500,
+     sim.data, x = ~t, y = ~h, color = ~as.factor(e), 
+     type = 'scatter', mode = 'markers', showlegend=F ),
+   plot_ly(width=900, height=500,
+     sim.data, x = ~t, y = ~exp(h), color = ~as.factor(e), 
+     type = 'scatter', mode = 'markers', showlegend=F ),
+   nrows = 1, margin = 0.05, titleX = TRUE, titleY = TRUE
+ ) %>% layout(title='', margin = plyMargins)
+```
+
+### Risk & Covariates:
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+subplot(
+   plot_ly(width=900, height=900,
+     sim.data, x = ~x.1, y = ~h, color = ~as.factor(e), 
+     type = 'scatter', mode = 'markers', showlegend=F ),
+   plot_ly(width=900, height=900,
+     sim.data, x = ~x.2, y = ~h, color = ~as.factor(e), 
+     type = 'scatter', mode = 'markers', showlegend=F ),
+   plot_ly(width=900, height=900,
+     sim.data, x = ~x.3, y = ~h, color = ~as.factor(e), 
+     type = 'scatter', mode = 'markers', showlegend=F ),
+   plot_ly(width=900, height=900,
+     sim.data, x = ~x.4, y = ~h, color = ~as.factor(e), 
+     type = 'scatter', mode = 'markers', showlegend=F ),
+   nrows = 2, margin = 0.05, titleX = TRUE, titleY = TRUE
+ ) %>% layout(title='', margin = plyMargins)
+```
+
+```{r echo=FALSE, eval=FALSE, warning=FALSE, include=FALSE}
+# Fit CoxPH model:
+covrs   <- names(sim.data)[grep('x.',names(sim.data))] 
+eq      <- paste0( 'Surv(time=t, event=e)',' ~ ',paste(covrs, collapse=" + ") )
+coxFit  <- coxph( as.formula(eq), data = sim.data )
+
+# Check adjusted Survival curve & predicted risk:
+plot(survfit(coxFit, newdata=sim.data[1,covrs]))
+plot( log(predict(coxFit, type = 'risk')), sim.data$h )
+
+# Make new sample:
+x1 = 0.3; x2 = 0.8; x3 = 0; x4 = 0; x5 = 0;
+
+# Predict linear risk:
+# https://stat.ethz.ch/R-manual/R-devel/library/survival/html/predict.coxph.html
+nd <- data.frame(x.1=x1,x.2=x2,x.3=x3,x.4=x4,x.5=x5)
+predict(coxFit, newdata = nd, type = 'lp') 
+
+betas  <- coxFit$coefficients
+betas['x.1']*x1 + betas['x.2']*x2 - betas['x.3']*x3 + betas['x.4']*x4 + betas['x.5']*x5 -0.05184996
+
+# Survival probability for a subject:
+nd$e <- 1;
+tt   <- seq(1:1000)
+rr   <- sapply(tt, function(x){
+      nd$t <- x  
+      exp(-predict(coxFit, newdata = nd, type = 'expected'))
+  })
+plot(tt,rr)
+
+# Expected number of events given the covariates and follow-up time 
+predict(coxFit, newdata = nd, type = 'expected')
+plot(predict(coxFit, type = 'expected'), sim.data$h)
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#true.risk <- linear_h( betas=c(1,2) )
+true.risk <- gaussian_h( rad=0.5, max.hr=4.0 )
+linear.risk <- 
+
+p <- plot_risk_surf(true.risk, mode = '2d')
+p
+```

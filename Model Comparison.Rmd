@@ -1,0 +1,234 @@
+---
+title: "Model Comparison"
+author: "bydmitry"
+output: html_document
+---
+  
+```{r include=FALSE}
+library(ggplot2)
+library(plotly)
+library(GGally)
+library(survival)
+library(survminer)
+library(ggplot2)
+library(reshape)
+library(cowplot)
+library(broom)
+library(Epi)
+source('mymisc.R')
+
+library(scales)
+library(RColorBrewer)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r echo=FALSE, warning=FALSE}
+folder    <- '/Users/bychkov/GDD/Projects/simu/simulated_data/'
+sim.data.linear  <- read.csv(paste0(folder, 'linear_5K.csv'))
+sim.data.gauss   <- read.csv(paste0(folder, 'gaussian_5K.csv'))
+```
+
+
+```{r echo=FALSE, warning=FALSE}
+folder    <- '/Users/bychkov/GDD/Projects/simu/models/'
+
+tmp  <- merge( by = 'id',
+  read.csv(paste0(folder, 'MLP_3hu_linear/preds_at_ep810.csv')),
+  read.csv(paste0(folder, 'MLP_3hu_linear/splits.csv'))  )
+sim.data.linear <- merge(by='id', sim.data.linear, tmp)
+
+tmp  <- merge( by = 'id',
+  read.csv(paste0(folder, 'MLP_5hu_gauss/preds_at_ep1250.csv')),
+  read.csv(paste0(folder, 'MLP_5hu_gauss/splits.csv'))  )
+sim.data.gauss <- merge(by='id', sim.data.gauss, tmp)
+remove(tmp)
+```
+
+### Data format:
+```{r echo=FALSE, warning=FALSE}
+knitr::kable(sim.data.linear[1:5,], caption = '')
+```
+
+### Risk & Covariates:
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+wsize = 950; hsize = 500; msize = 3;
+linear_df <- sim.data.linear[sample(nrow(sim.data.linear), 500),]
+gauss_df  <- sim.data.gauss[sample(nrow(sim.data.gauss), 500),]
+subplot(widths = c(0.25,0.25,0.25,0.25),
+   plot_ly(width=wsize, height=hsize, marker=list(size=msize),
+     linear_df, x = ~x.1, y = ~h, color = ~as.factor(e), 
+     type = 'scatter', mode = 'markers', showlegend=F ),
+   plot_ly(width=wsize, height=hsize, marker=list(size=msize),
+     linear_df, x = ~x.2, y = ~h, color = ~as.factor(e), 
+     type = 'scatter', mode = 'markers', showlegend=F ),
+   plot_ly(width=wsize, height=hsize, marker=list(size=msize),
+     linear_df, x = ~x.3, y = ~h, color = ~as.factor(e), 
+     type = 'scatter', mode = 'markers', showlegend=F ),
+   plot_risk_surf(linear_h( betas=c(1,2) ), mode = '2d', wsize=wsize, hsize=hsize),
+   plot_ly(width=wsize, height=hsize, marker=list(size=msize),
+     gauss_df, x = ~x.1, y = ~h, color = ~as.factor(e), 
+     type = 'scatter', mode = 'markers', showlegend=F ),
+   plot_ly(width=wsize, height=hsize, marker=list(size=msize),
+     gauss_df, x = ~x.2, y = ~h, color = ~as.factor(e), 
+     type = 'scatter', mode = 'markers', showlegend=F ),
+   plot_ly(width=wsize, height=hsize, marker=list(size=msize),
+     gauss_df, x = ~x.3, y = ~h, color = ~as.factor(e), 
+     type = 'scatter', mode = 'markers', showlegend=F ),
+   plot_risk_surf(gaussian_h(), mode = '2d', wsize=wsize, hsize=hsize),
+   nrows = 2, margin = 0.035, titleX = TRUE, titleY = TRUE
+ ) %>% layout(title='', margin = plyMargins)
+```
+
+
+### Risk & Duration-to-Failure:
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+wsize = 700; hsize = 400; msize = 3;
+subplot( widths = c(0.5,0.5),
+   plot_ly(width=wsize, height=hsize, marker=list(size=msize),
+     linear_df, x = ~t, y = ~h, color = ~as.factor(e), 
+     type = 'scatter', mode = 'markers', showlegend=F ),
+   plot_ly(width=wsize, height=hsize, marker=list(size=msize),
+     gauss_df, x = ~t, y = ~h, color = ~as.factor(e), 
+     type = 'scatter', mode = 'markers', showlegend=F ),
+   nrows = 1, margin = 0.05, titleX = TRUE, titleY = TRUE
+ ) %>% layout(title='', margin = plyMargins, annotations = list(
+ list(x = 0.2 , y = 1.1, text = "Linear Risk", showarrow = F, xref='paper', yref='paper'),
+  list(x = 0.8 , y = 1.1, text = "Gaussian Risk", showarrow = F, xref='paper', yref='paper')))
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# Define regression formula:
+covrs   <- names(sim.data.linear)[grep('x.',names(sim.data.linear))] 
+eq      <- paste0( 'Surv(time=t, event=e)',' ~ ',paste(covrs, collapse=" + ") )
+
+# Fit CoxPH on train + validation:
+linear.train <- sim.data.linear[sim.data.linear$split != 'test',]
+gauss.train  <- sim.data.gauss[sim.data.gauss$split != 'test',]
+coxFit.linear  <- coxph( as.formula(eq), data = linear.train )
+coxFit.gauss   <- coxph( as.formula(eq), data = gauss.train )
+
+# Make predictions for the entire set:
+sim.data.linear$h_cox <- log( predict(coxFit.linear, type = 'risk', newdata = sim.data.linear) ) 
+sim.data.gauss$h_cox  <- log( predict(coxFit.gauss, type = 'risk', newdata = sim.data.gauss) ) 
+
+```
+
+### Predicted Risk on Test Set
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+linear.test <- sim.data.linear[sim.data.linear$split == 'test',]
+gauss.test  <- sim.data.gauss[sim.data.gauss$split == 'test',]
+
+wsize = 700; hsize = 700; msize = 3;
+subplot( widths = c(0.5,0.5),
+   plot_ly(width=wsize, height=hsize, marker=list(size=msize),
+     linear.test, x = ~h, y = ~h_cox, color = ~as.factor(e), 
+     type = 'scatter', mode = 'markers', showlegend=F ),
+   plot_ly(width=wsize, height=hsize, marker=list(size=msize),
+     linear.test, x = ~h, y = ~h_hat, color = ~as.factor(e), 
+     type = 'scatter', mode = 'markers', showlegend=F ),
+   plot_ly(width=wsize, height=hsize, marker=list(size=msize),
+     gauss.test, x = ~h, y = ~h_cox, color = ~as.factor(e), 
+     type = 'scatter', mode = 'markers', showlegend=F ),
+   plot_ly(width=wsize, height=hsize, marker=list(size=msize),
+     gauss.test, x = ~h, y = ~h_hat, color = ~as.factor(e), 
+     type = 'scatter', mode = 'markers', showlegend=F ),
+   nrows = 2, margin = 0.07, titleX = TRUE, titleY = TRUE
+ ) %>% layout(title='', margin = plyMargins, annotations = list(
+ list(x = 0.15 , y = 1.1, text = "Cox PH", showarrow = F, xref='paper', yref='paper'),
+  list(x = 0.8 , y = 1.1, text = "MLP", showarrow = F, xref='paper', yref='paper')))
+```
+
+### Adjusted Survival Curves
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+base_line_linear <- merge(
+  compute_baseline(sim.data.linear, 'h_cox'),
+  compute_baseline(sim.data.linear, 'h_hat'),
+  by='t', suffixes = c(".cox",".mlp") )
+
+base_line_gauss <- merge(
+  compute_baseline(sim.data.gauss, 'h_cox'),
+  compute_baseline(sim.data.gauss, 'h_hat'),
+  by='t', suffixes = c(".cox",".mlp") )
+ 
+d.phm = coxph.detail(coxFit.linear)
+times = c(0,d.phm$t)
+h0    = c(0,d.phm$hazard)
+S0    = exp(-cumsum(h0))
+baseline_1 <- data.frame(t=times, h0=h0, s0=S0)
+
+km_1  <- survfit( Surv( time = sim.data.linear$t, event = sim.data.linear$e ) ~ 1 )
+km_1  <- data.frame(t=km_1$time, s=km_1$surv) 
+
+nd     <- data.frame(x.1=0, x.2=0, x.3=0, x.4=0, x.5=0)
+zer_1  <- survfit(coxFit.linear, newdata=nd)
+zer_1  <- data.frame(t=zer_1$time, s=zer_1$surv) 
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+marker_style <- list(color = 'rgb(255, 182, 193)', symbol='hourglass', opacity=0.9, size=8)
+w = 700; h = 500;
+plot_ly(name = 'Custom Estimate',
+    data = base_line_linear, x = ~t, y = ~s.cox, 
+    width = w, height = h, type = 'scatter', mode = 'lines',
+    line = list(width = 2, shape='vhv')) %>%
+  add_trace(name = 'Custom NN',
+    data = base_line_linear, x = ~t, y = ~s.mlp, 
+    width = w, height = h, type = 'scatter', mode = 'lines',
+    line = list(width = 2, shape='vhv')) %>%
+  add_trace(name = 'Cox adjusted (average)',
+    data = baseline_1, x = ~t, y = ~s0, 
+    width = w, height = h, type = 'scatter', mode = 'lines',
+    line = list(width = 2, shape='vhv')) %>%
+  add_trace(name = 'KM',
+    data = km_1, x = ~t, y = ~s, 
+    width = w, height = h, type = 'scatter', mode = 'lines',
+    line = list(width = 2, shape='vhv')) %>%
+  add_trace(name = 'Zeros',
+    data = zer_1, x = ~t, y = ~s, 
+    width = w, height = h, type = 'scatter', mode = 'lines',
+    line = list(width = 2, shape='vhv')) %>%
+
+  layout(
+    title   = "",
+    margin  = plyMargins,
+    xaxis   = list(
+      title = "Time",
+      range = c(0,max(base_line_linear$t) * 1.1) ),
+    yaxis   = list(title = "Survival", range = c(0,1)))
+  
+```
+
+
+```{r echo=FALSE, eval=FALSE, warning=FALSE, include=FALSE}
+# Check adjusted Survival curve & predicted risk:
+plot(survfit(coxFit.linear, newdata=sim.data.linear[1,covrs]))
+
+# Make new sample:
+x1 = 0.3; x2 = 0.8; x3 = 0; x4 = 0; x5 = 0;
+
+# Predict linear risk:
+# https://stat.ethz.ch/R-manual/R-devel/library/survival/html/predict.coxph.html
+nd <- data.frame(x.1=x1,x.2=x2,x.3=x3,x.4=x4,x.5=x5)
+predict(coxFit, newdata = nd, type = 'lp') 
+
+
+coxFit <- coxFit.linear
+betas  <- coxFit$coefficients
+betas['x.1']*x1 + betas['x.2']*x2 - betas['x.3']*x3 + betas['x.4']*x4 + betas['x.5']*x5 -0.05184996
+
+# Survival probability for a subject:
+nd$e <- 1;
+tt   <- seq(1:1000)
+rr   <- sapply(tt, function(x){
+      nd$t <- x  
+      exp(-predict(coxFit, newdata = nd, type = 'expected'))
+  })
+plot(tt,rr)
+
+# Expected number of events given the covariates and follow-up time 
+predict(coxFit, newdata = nd, type = 'expected')
+plot(predict(coxFit, type = 'expected'), sim.data.linear$h)
+```
+

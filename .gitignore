@@ -1,0 +1,14 @@
+.#space_test.py
+.RData
+.Rhistory
+.ipynb_checkpoints/
+.projectile
+.spyproject/
+
+*.html
+*.pyc
+
+models/
+simulated_data/
+synthetic_imgs/
+test_imgs/
