@@ -45,9 +45,9 @@ from scipy.stats import kendalltau, pearsonr
 import keras
 from keras import backend as K
 
-os.environ['KERAS_BACKEND'] = 'theano'
-if platform.node() == 'lm4-fim-mg3qd.pc.helsinki.fi':
-    os.environ['THEANO_FLAGS']='mode=FAST_RUN,device=cpu,floatX=float32'
+#os.environ['KERAS_BACKEND'] = 'theano'
+#if platform.node() == 'lm4-fim-mg3qd.pc.helsinki.fi':
+#    os.environ['THEANO_FLAGS']='mode=FAST_RUN,device=cpu,floatX=float32'
 
 np.random.seed(1337) # for reproducibility
 #np.set_printoptions(precision=5, suppress=True)
@@ -58,7 +58,7 @@ np.random.seed(1337) # for reproducibility
 class Builder(object):
     def __init__(self, opts, train_data, test_data, val_data):
         self.opts  = opts
-    
+
         # Reassign input data:
         self.data = dict()
         self.data['train'] = train_data
@@ -101,7 +101,7 @@ class Builder(object):
             # Save model structure:
             with open(os.path.join(self.wrk_dir, 'model.yml'), "w") as text_file:
                 text_file.write( self.model.to_yaml() )
-                
+
             # Save split ids:
             #self.save_ids()
 
@@ -111,11 +111,11 @@ class Builder(object):
 
     # ------------------------------------------------------------------------------
     def train(self, epoches, batch, shuffle=True, verbose=1):
-        history = self.model.fit( 
+        history = self.model.fit(
                 x   = self.data['train'][0],
                 y   = self.data['train'][1],
                 validation_data   = (
-                        self.data['valid'][0], 
+                        self.data['valid'][0],
                         self.data['valid'][1] ),
                 validation_split  = 0.0,
                 batch_size        = batch,
@@ -128,13 +128,13 @@ class Builder(object):
     # ------------------------------------------------------------------------------
     def save_ids(self):
         fname = os.path.join(self.wrk_dir, 'splits.csv')
-        dfs   = list() 
+        dfs   = list()
         for split in ['train', 'valid', 'test']:
             d  = OrderedDict()
             d['id']    = self.data[split][1][:,3]
             d['split'] = np.array([split] * d['id'].shape[0])
             dfs.append( pd.DataFrame( data=d ) )
-            
+
         df = pd.concat(dfs, ignore_index=True, axis=0)
         df.sort_values(by='id', inplace=True)
         df.to_csv(fname, index = False)
@@ -147,7 +147,7 @@ class Builder(object):
 
             self.opts     = builder.opts
             self.builder  = builder
-            
+
             # This is to temporarily store predictions:
             self.preds    = dict()
 
@@ -169,17 +169,17 @@ class Builder(object):
 
             # Get loss on test set:
             test_loss = self.model.evaluate(
-                    self.builder.data['test'][0], 
-                    self.builder.data['test'][1], 
-                    batch_size = self.builder.data['test'][0].shape[0], 
+                    self.builder.data['test'][0],
+                    self.builder.data['test'][1],
+                    batch_size = self.builder.data['test'][0].shape[0],
                     verbose = 0 )
-            
+
             # Save training-step performance:
             self.history['epoch'].append( self.epoch_count )
             self.history.setdefault('train_loss',[]).append( logs.get('loss') )
             self.history.setdefault('valid_loss',[]).append( logs.get('val_loss') )
             self.history.setdefault('test_loss',[]).append( test_loss )
-            
+
             # Get accuracy statistics on train/val/test:
             self.custom_eval()
 
@@ -201,26 +201,26 @@ class Builder(object):
             # Get ptrdictions for all splits:
             for split in ['train', 'valid', 'test']:
                 self.preds[split] = np.squeeze( self.model.predict(
-                        self.builder.data[split][0], 
+                        self.builder.data[split][0],
                         batch_size = self.builder.data[split][0].shape[0],
                         verbose    = 0 ) )
-            
+
             suff = '_cindex'
-            for split in ['train', 'valid', 'test']:                
+            for split in ['train', 'valid', 'test']:
                 self.history.setdefault(split+suff,[]).append(
                     concordance_index(
                         self.builder.data[split][1][:,1],   # t
                         -self.preds[split],                 # h_hat
-                        self.builder.data[split][1][:,2]  ) # e 
+                        self.builder.data[split][1][:,2]  ) # e
                 )
-                
+
             suff = '_kentau'
             for split in ['train', 'valid', 'test']:
                 tau, p_value = kendalltau(
                         self.builder.data[split][1][:,0],
                         self.preds[split] )
                 self.history.setdefault(split+suff,[]).append( tau )
-                
+
             suff = '_pearsonr'
             for split in ['train', 'valid', 'test']:
                 rcoeff = pearsonr(
@@ -228,7 +228,7 @@ class Builder(object):
                         self.preds[split] )
                 self.history.setdefault(split+suff,[]).append( rcoeff[0] )
 
-            
+
             return True
         # ------------------------------------------------------------------------------
         def dump_state(self):
@@ -241,7 +241,7 @@ class Builder(object):
         # ------------------------------------------------------------------------------
         def plot_scatter(self):
             fname = os.path.join(self.builder.wrk_dir, 'scatter_plot.html')
-            
+
             test = go.Scattergl(
                 name    = 'Test set',
                 x       = self.builder.data['test'][1][:,0],
@@ -256,38 +256,38 @@ class Builder(object):
                 mode    = 'markers',
                 marker  = dict(size = 3)
             )
-            
+
             layout = go.Layout(
                 title  = 'Predicted VS Real Hazard',
                 xaxis  = dict( title='H', range = [-4.5,4.5]),
                 yaxis  = dict( title='H_hat', range = [-4.5,4.5]) )
-            
+
             fig = go.Figure( data=[train, test], layout=layout )
             py.plot(fig, filename=fname, auto_open=False)
-        
+
         def plot_history(self, metrics='loss', ylim=None):
             fname = os.path.join(self.builder.wrk_dir, '%s.html' % metrics)
-            
+
             # Colors:
             cl1 = '#348ABD'; cl2 = '#8EBA42'; cl3='#BA4252';
             pmode = 'lines+markers'
-            
+
             XS = np.array(self.history['epoch'])
             train_loss = go.Scatter( name='Train %s' % metrics,
                 yaxis='y1',
-                x = XS, y = np.array(self.history['train_%s' % metrics]), 
+                x = XS, y = np.array(self.history['train_%s' % metrics]),
                 line = dict(color = cl1), mode = pmode )
-            
-            valid_loss = go.Scatter(name='Valid %s' % metrics, 
-                yaxis='y2',                                    
+
+            valid_loss = go.Scatter(name='Valid %s' % metrics,
+                yaxis='y2',
                 x = XS, y = np.array(self.history['valid_%s' % metrics]),
                 line = dict(color = cl2), mode = pmode )
-            
+
             test_loss  = go.Scatter(name='Test %s' % metrics,
                 yaxis='y3',
                 x = XS, y = np.array(self.history['test_%s' % metrics]),
                 line = dict(color = cl3), mode = pmode )
-            
+
             data = [train_loss, valid_loss, test_loss]
 
             layout = go.Layout(
@@ -307,10 +307,10 @@ class Builder(object):
                     range     = ylim,
                     overlaying='y', side='right', position=0.98, anchor ='free'   )
             )
-            
-            
+
+
             fig = go.Figure(data=data, layout=layout)
-            
+
             py.plot(fig, filename=fname, auto_open=False)
 
 
@@ -328,53 +328,82 @@ def load_surv_samples(fname, sort=False):
 
     if sort:
         # Sort Training Data for Accurate Likelihood
-        sort_idx = np.argsort(dataset['t'])[::-1]        
+        sort_idx = np.argsort(dataset['t'])[::-1]
         for k in dataset.keys():
             if type(dataset[k]) == np.ndarray:
                 if dataset[k].shape[0] == dataset['t'].shape[0]:
                    dataset[k] =  dataset[k][sort_idx]
-                   
+
     # (N, d)
     data_x  = dataset['x']
-    
+
     # (N, 3)
     data_y  = np.column_stack((
                     dataset['h'],
                     dataset['t'],
                     dataset['e'],
                     dataset['id'] ))
-    
-            
+
+
     print 'Loading data from: %s' % fname
     return (data_x, data_y)
-  
+
 def partial_likelihood(y_true, y_pred):
     ''' Returns the Negative Partial Log Likelihood
         of the parameters given ordered hazards [estimated by a NN];
         This method cannot handle tied observations.
-        
+
         Parameters:
             risk (N,): a vector of hazard values for each of N samples.
-                Samples (=> risk vector) are ordered according to failure 
+                Samples (=> risk vector) are ordered according to failure
                 time from largest to smallest.
-            events (N,): a vector (ordered in the same fashion) of event 
+            events (N,): a vector (ordered in the same fashion) of event
                 indicators, where 1 - is event; 0 - is censored.
-    '''    
+    '''
     #y_true = theano.tensor.fmatrix()
     #y_pred = theano.tensor.fvector()
-    
+
     # first sort by time for Accurate Likelihood:
-    sort_idx = np.argsort( y_true[:,1] )[::-1]          
-        
+    sort_idx = np.argsort( y_true[:,1] )[::-1]
+
     risk    = y_pred[sort_idx]
     events  = y_true[:,2][sort_idx]
-            
+
     hazard_ratio = T.exp(risk)
     log_cum_risk = T.log(T.extra_ops.cumsum(hazard_ratio))
     uncencored_likelihood = risk.T - log_cum_risk
     censored_likelihood = uncencored_likelihood * events
     neg_likelihood = -T.sum( censored_likelihood )
-    
+
+    return neg_likelihood
+
+def partial_likelihood_tf(y_true, y_pred):
+    ''' Returns the Negative Partial Log Likelihood
+        of the parameters given ordered hazards [estimated by a NN];
+        This method cannot handle tied observations.
+
+        Parameters:
+            risk (N,): a vector of hazard values for each of N samples.
+                Samples (=> risk vector) are ordered according to failure
+                time from largest to smallest.
+            events (N,): a vector (ordered in the same fashion) of event
+                indicators, where 1 - is event; 0 - is censored.
+    '''
+    #y_true = theano.tensor.fmatrix()
+    #y_pred = theano.tensor.fvector()
+
+    # first sort by time for Accurate Likelihood:
+    sort_idx = np.argsort( y_true[:,1] )[::-1]
+
+    risk    = y_pred[sort_idx]
+    events  = y_true[:,2][sort_idx]
+
+    hazard_ratio = T.exp(risk)
+    log_cum_risk = T.log(T.extra_ops.cumsum(hazard_ratio))
+    uncencored_likelihood = risk.T - log_cum_risk
+    censored_likelihood = uncencored_likelihood * events
+    neg_likelihood = -T.sum( censored_likelihood )
+
     return neg_likelihood
 
 def my_mse(y_true, y_pred):
@@ -393,14 +422,14 @@ def breslows_method():
 # Done.
 #==============================================================================
 
-    
-#    risk    = T.squeeze(y_pred) 
+
+#    risk    = T.squeeze(y_pred)
 #    events  = y_true[1]
-#    
+#
 #    #risk = np.array([2,1,4])
 #    hazard_ratio = T.exp(risk)
 #    log_cum_risk = T.log(T.extra_ops.cumsum(hazard_ratio))
 #    uncencored_likelihood = risk.T - log_cum_risk
 #    censored_likelihood = uncencored_likelihood * events
 #    neg_likelihood = - T.sum( censored_likelihood )
-#    
+#

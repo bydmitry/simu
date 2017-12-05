@@ -12,3 +12,5 @@ models/
 simulated_data/
 synthetic_imgs/
 test_imgs/
+.Rproj.user
+*.Rproj
