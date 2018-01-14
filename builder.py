@@ -323,7 +323,7 @@ class Builder(object):
 def load_surv_samples(fname, sort=False):
     dataset  = pickle.load( open( fname, "rb" ) )
     if not isinstance(dataset, dict):
-        print 'Cannot load the data!'
+        print('Cannot load the data!')
         return False
 
     if sort:
@@ -345,7 +345,7 @@ def load_surv_samples(fname, sort=False):
                     dataset['id'] ))
 
 
-    print 'Loading data from: %s' % fname
+    print('Loading data from: %s' % fname)
     return (data_x, data_y)
 
 def partial_likelihood(y_true, y_pred):
