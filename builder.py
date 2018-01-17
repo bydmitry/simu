@@ -9,6 +9,7 @@ Created on Thu Jun  1 13:16:58 2017
 import os
 import theano
 import theano.tensor as T
+import tensorflow as tf
 import shutil
 import pickle
 import platform
@@ -318,118 +319,5 @@ class Builder(object):
             return self.epoch_count
 
 #==============================================================================
-# Misc functions:
-#==============================================================================
-def load_surv_samples(fname, sort=False):
-    dataset  = pickle.load( open( fname, "rb" ) )
-    if not isinstance(dataset, dict):
-        print('Cannot load the data!')
-        return False
-
-    if sort:
-        # Sort Training Data for Accurate Likelihood
-        sort_idx = np.argsort(dataset['t'])[::-1]
-        for k in dataset.keys():
-            if type(dataset[k]) == np.ndarray:
-                if dataset[k].shape[0] == dataset['t'].shape[0]:
-                   dataset[k] =  dataset[k][sort_idx]
-
-    # (N, d)
-    data_x  = dataset['x']
-
-    # (N, 3)
-    data_y  = np.column_stack((
-                    dataset['h'],
-                    dataset['t'],
-                    dataset['e'],
-                    dataset['id'] ))
-
-
-    print('Loading data from: %s' % fname)
-    return (data_x, data_y)
-
-def partial_likelihood(y_true, y_pred):
-    ''' Returns the Negative Partial Log Likelihood
-        of the parameters given ordered hazards [estimated by a NN];
-        This method cannot handle tied observations.
-
-        Parameters:
-            risk (N,): a vector of hazard values for each of N samples.
-                Samples (=> risk vector) are ordered according to failure
-                time from largest to smallest.
-            events (N,): a vector (ordered in the same fashion) of event
-                indicators, where 1 - is event; 0 - is censored.
-    '''
-    #y_true = theano.tensor.fmatrix()
-    #y_pred = theano.tensor.fvector()
-
-    # first sort by time for Accurate Likelihood:
-    sort_idx = np.argsort( y_true[:,1] )[::-1]
-
-    risk    = y_pred[sort_idx]
-    events  = y_true[:,2][sort_idx]
-
-    hazard_ratio = T.exp(risk)
-    log_cum_risk = T.log(T.extra_ops.cumsum(hazard_ratio))
-    uncencored_likelihood = risk.T - log_cum_risk
-    censored_likelihood = uncencored_likelihood * events
-    neg_likelihood = -T.sum( censored_likelihood )
-
-    return neg_likelihood
-
-def partial_likelihood_tf(y_true, y_pred):
-    ''' Returns the Negative Partial Log Likelihood
-        of the parameters given ordered hazards [estimated by a NN];
-        This method cannot handle tied observations.
-
-        Parameters:
-            risk (N,): a vector of hazard values for each of N samples.
-                Samples (=> risk vector) are ordered according to failure
-                time from largest to smallest.
-            events (N,): a vector (ordered in the same fashion) of event
-                indicators, where 1 - is event; 0 - is censored.
-    '''
-    #y_true = theano.tensor.fmatrix()
-    #y_pred = theano.tensor.fvector()
-
-    # first sort by time for Accurate Likelihood:
-    sort_idx = np.argsort( y_true[:,1] )[::-1]
-
-    risk    = y_pred[sort_idx]
-    events  = y_true[:,2][sort_idx]
-
-    hazard_ratio = T.exp(risk)
-    log_cum_risk = T.log(T.extra_ops.cumsum(hazard_ratio))
-    uncencored_likelihood = risk.T - log_cum_risk
-    censored_likelihood = uncencored_likelihood * events
-    neg_likelihood = -T.sum( censored_likelihood )
-
-    return neg_likelihood
-
-def my_mse(y_true, y_pred):
-    return K.mean(K.square(y_pred - y_true[:,0]))
-
-
-# TODO:
-def efrons_method():
-    pass
-
-def breslows_method():
-    pass
-
-
-#==============================================================================
 # Done.
 #==============================================================================
-
-
-#    risk    = T.squeeze(y_pred)
-#    events  = y_true[1]
-#
-#    #risk = np.array([2,1,4])
-#    hazard_ratio = T.exp(risk)
-#    log_cum_risk = T.log(T.extra_ops.cumsum(hazard_ratio))
-#    uncencored_likelihood = risk.T - log_cum_risk
-#    censored_likelihood = uncencored_likelihood * events
-#    neg_likelihood = - T.sum( censored_likelihood )
-#
