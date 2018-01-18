@@ -21,7 +21,7 @@ import pandas as pd
 set_name   = 'test'
 save_to    = '/Users/bychkov/GDD/Projects/simu/synthetic_imgs/'
 
-im_size    = (111, 111)
+im_size    = (109, 109) # (111, 111)
 
 csv_file = '/Users/bychkov/GDD/Projects/simu/simulated_data/linear_5K.csv'
 csv_splits = '/Users/bychkov/GDD/Projects/simu/models/MLP_3hu_linear/splits.csv'
@@ -30,9 +30,9 @@ csv_splits = '/Users/bychkov/GDD/Projects/simu/models/MLP_3hu_linear/splits.csv'
 # OldRange = (OldMax - OldMin)
 OldRange = ( 1 - (-1) )
 
-# NewRange = (NewMax - NewMin)  
-x1Range = (200 - 0)  
-x2Range = (30 - 0)  
+# NewRange = (NewMax - NewMin)
+x1Range = (200 - 0)
+x2Range = (30 - 0)
 
 #NewValue = (((OldValue - OldMin) * NewRange) / OldRange) + NewMin
 #----------------------------------------------------------------------
@@ -61,7 +61,7 @@ np_dict = dict(); np_indx = dict();
 for split in ['train', 'valid', 'test']:
     np_dict[split+'_x'] = np.empty(shape=[ n_smpl[split], 3, im_size[0], im_size[1] ], dtype='float32')
     np_dict[split+'_y'] = np.empty(shape=[ n_smpl[split], 4], dtype='float32')
-    np_indx[ split ]    = 0  
+    np_indx[ split ]    = 0
 
 for ind, row in csv_data.iterrows():
     print '  Sample: %d / %d' % ( ind+1, n_smpl['N'] )
@@ -71,11 +71,11 @@ for ind, row in csv_data.iterrows():
     # Prepare covariates:
     x1 = int(round( (((row['x.1'] + 1) * x1Range) / OldRange) ))
     x2 = int(round( (((row['x.2'] + 1) * x2Range) / OldRange) ))
-    
+
     # Generate image:
     im = sim_imgs.sim_sample(canvas=im_size, xs=(x2,x1), my_dpi=300.0)
     im = skimage.img_as_float( im )
-    
+
     # Add Xs:
     np_dict[cur_split+'_x'][np_indx[cur_split],...] = np.transpose(im, axes = (2,0,1))
 
@@ -84,10 +84,10 @@ for ind, row in csv_data.iterrows():
     np_dict[cur_split+'_y'][np_indx[cur_split],1] = row['t']
     np_dict[cur_split+'_y'][np_indx[cur_split],2] = row['e']
     np_dict[cur_split+'_y'][np_indx[cur_split],3] = row['id']
-    
+
     # Do not forget to increment counters:
     np_indx[cur_split] += 1
-    
+
 del im, ind, row, x1, x2
 
 #----------------------------------------------------------------------

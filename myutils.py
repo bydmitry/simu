@@ -11,9 +11,51 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 import keras
 import keras.backend as K
+
+from sklearn.metrics import roc_auc_score
+from lifelines.utils import concordance_index
+
 #----------------------------------------------------------------------
 # Plot losses:
 #----------------------------------------------------------------------
+def sub_plot_history(history, preds, data, idx, h_type=2, y_lim=()):
+    risk   = data['h%s'%str(h_type)][idx].flatten()
+    labl   = data['bin_t%s'%str(h_type)][idx].flatten()
+    low_i  = labl == 0
+    high_i = labl == 1
+    plt.figure(figsize=(12,5))
+    plt.subplot(1, 2, 1)
+    plt.plot(history.history['loss'])
+    plt.plot(history.history['val_loss'])
+    plt.title('Training history')
+    plt.ylabel('loss');  plt.xlabel('epoch')
+    plt.legend(['train', 'valid'], loc='upper right')
+
+    c_ind = np.round(concordance_index(data['t2'][idx], preds),3)
+    if c_ind < 0.5:
+        c_ind = 1-c_ind
+    auc = np.round(roc_auc_score(labl, preds), 2)
+    if auc < 0.5:
+        auc = 1-auc
+    plt.subplot(1, 2, 2)
+    plt.plot(risk[high_i], preds[high_i], '.', c='r', alpha=0.75)
+    plt.plot(risk[low_i], preds[low_i], '.', c='b', alpha=0.75)
+    plt.title('C_ind: %s, AUC: %s' % (str(c_ind), str(auc)))
+    plt.xlabel('Risk')
+    plt.ylabel('Predicted Risk')
+    plt.legend(['Non-Survivors', 'Survivors'], loc=2)
+    if len(y_lim):
+        plt.ylim(y_lim)
+    plt.show()
+
+def plot_history(history):
+    plt.plot(history.history['loss'])
+    plt.plot(history.history['val_loss'])
+    plt.title('model loss')
+    plt.ylabel('loss');  plt.xlabel('epoch')
+    plt.legend(['train', 'valid'], loc='upper right')
+    plt.show()
+
 class PlotLosses(object):
     def __init__(self, figsize=(8,6)):
         plt.plot([], [])
@@ -158,6 +200,9 @@ def efron_estimator_tf(y_true, y_pred):
     )
 
     log_lik = loop_2[5]
+    # TODO: Normalize by the number of EVENTS in the batch,
+    # NOT number of samples in the batch FIXIT!!
+    log_lik = log_lik / tf.cast(tf.shape(y_pred)[0], tf.float32)
     return tf.negative(log_lik)
 
 def my_mse(y_true, y_pred):

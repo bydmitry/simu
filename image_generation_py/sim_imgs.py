@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+range#!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 """
 Created on Fri Feb 24 11:36:01 2017
@@ -28,7 +28,7 @@ from opensimplex import OpenSimplex
 #==============================================================================
 def turbulence(pos, pixel_size):
     gen = OpenSimplex(random.randrange(1,1e5))
-    
+
     x = 0.0
     scale = 1.0;
     while( scale > pixel_size):
@@ -47,25 +47,25 @@ def marble(pos):
     rgb[2] = 0.6 + 0.4 * np.sqrt(x)
     return rgb
 
-#------------------------------------------------------------------------------  
-  
-def sim_background(grid=8, im_resize=(90,90), smooth=11): 
+#------------------------------------------------------------------------------
+
+def sim_background(grid=8, im_resize=(90,90), smooth=11):
     im_resize = im_resize + (3,)
     # gen.noise3d(x, y, c) / 2.0 + 0.5
     h = w = grid
-    
+
     simg = np.zeros((h,w,3), dtype='float32')
-    for y in xrange(h):
-        for x in xrange(w):
-            simg[y][x] = marble(np.array([x,y])) 
-                
+    for y in range(h):
+        for x in range(w):
+            simg[y][x] = marble(np.array([x,y]))
+
     # Resize:
     simg = misc.imresize(simg, size=im_resize)
-    
+
     # Smoothing:
     for c in range(3):
         simg[:,:,c] = ndimage.uniform_filter(simg[:,:,c],size=smooth)
-    
+
     #plt.imshow(simg)
     return simg
 
@@ -73,8 +73,8 @@ def sim_background(grid=8, im_resize=(90,90), smooth=11):
 # Foreground objects:
 #==============================================================================
 def generatePolygon( ctrX, ctrY, aveRadius, irregularity, spikeyness, numVerts ) :
-    '''Start with the centre of the polygon at ctrX, ctrY, 
-    then creates the polygon by sampling points on a circle around the centre. 
+    '''Start with the centre of the polygon at ctrX, ctrY,
+    then creates the polygon by sampling points on a circle around the centre.
     Randon noise is added by varying the angular spacing between sequential points,
     and by varying the radial distance of each point from the centre.
 
@@ -120,7 +120,7 @@ def generatePolygon( ctrX, ctrY, aveRadius, irregularity, spikeyness, numVerts )
     return tuple(points)
 
 def clip(x, min, max):
-     if( min > max ) :  return x    
+     if( min > max ) :  return x
      elif( x < min ) :  return min
      elif( x > max ) :  return max
      else :             return x
@@ -128,47 +128,47 @@ def clip(x, min, max):
 def cell_pathces_1(n_cells, canvas_size):
     Path = mpath.Path
     #clump_mrgn = np.round(canvas_size[0]*0.15)
-    
+
     # This setting is good for n_cells = [0,30]
     averRad = 4
     clump_mrgn = np.round(averRad*0.8*n_cells*0.3 + 5)
-    
+
     # Clump location:
-    cntr  = np.random.randint(0+clump_mrgn,89-clump_mrgn,(2))    
+    cntr  = np.random.randint(0+clump_mrgn,89-clump_mrgn,(2))
     spanX = np.random.randint(
             cntr[0]-clump_mrgn, cntr[0]+clump_mrgn,(n_cells) )
     spanY = np.random.randint(
             cntr[1]-clump_mrgn, cntr[1]+clump_mrgn,(n_cells) )
-        
+
     patches = list()
     # Tuple of codes:
-    codes = (Path.MOVETO,) 
-    for i in [Path.CURVE4 for c in xrange(9)]:
+    codes = (Path.MOVETO,)
+    for i in [Path.CURVE4 for c in range(9)]:
         codes = codes + (i,)
-        
+
     # --- Generate Vertices --- #
-    for cc_n in xrange(n_cells):
+    for cc_n in range(n_cells):
         verts = generatePolygon(ctrX=spanX[cc_n], ctrY=spanY[cc_n], numVerts=9,
                                 aveRadius=averRad, irregularity=0.5, spikeyness=0.1)
         # Last point is same as first to close the polygon
-        verts = verts + (verts[0],)    
-            
+        verts = verts + (verts[0],)
+
         # Create a patch:
         path   = mpath.Path(verts, codes)
-        patch  = mpatches.PathPatch(path, 
+        patch  = mpatches.PathPatch(path,
                         facecolor='r', alpha=0.39,
                         lw = 0.35)
-        patches.append( patch )    
-    
+        patches.append( patch )
+
     return patches
 
 def cell_pathces_2(n_cells, canvas_size):
     patches = list()
-    
+
     spanX = np.random.randint( 0, canvas_size[0], n_cells )
     spanY = np.random.randint( 0, canvas_size[1], n_cells )
 
-    for cc_n in xrange(n_cells):
+    for cc_n in range(n_cells):
         patch = mpatches.Circle(
             xy         = (spanX[cc_n],spanY[cc_n]),
             radius     = int(np.round(canvas_size[0]*0.01)),
@@ -177,16 +177,16 @@ def cell_pathces_2(n_cells, canvas_size):
             alpha      = 0.7
         )
         patches.append(patch)
-    
+
     return patches
 
 #==============================================================================
 # Simulate sample function:
-#==============================================================================   
+#==============================================================================
 def sim_sample(canvas=(90,90), xs=(5,50), my_dpi=300.0):
     '''
     my_dpi: Must be float!
-    
+
     '''
     # Initialize figure:
     fig, ax = plt.subplots(figsize=(canvas[0]/my_dpi,canvas[1]/my_dpi), dpi=my_dpi)
@@ -195,16 +195,16 @@ def sim_sample(canvas=(90,90), xs=(5,50), my_dpi=300.0):
     grid=int(canvas[0]/6.0); smooth=canvas[0]/4.5;
     bckgrd = sim_background(grid, canvas, smooth)
     ax.imshow( bckgrd )
-    
+
     # --- Add patches to the figure --- #
     patches = cell_pathces_1(n_cells=xs[0], canvas_size=canvas)
     for patch in patches:
         ax.add_patch(patch)
-        
+
     patches = cell_pathces_2(n_cells=xs[1], canvas_size=canvas)
     for patch in patches:
         ax.add_patch(patch)
-        
+
     # --- Adjust Axis & Margins --- #
     ax.axis('equal')
     ax.set_ylim( [0, canvas[0]] )
@@ -212,28 +212,28 @@ def sim_sample(canvas=(90,90), xs=(5,50), my_dpi=300.0):
     ax.axis('off')
     ax.set_xticks([]); ax.set_yticks([])
     fig.subplots_adjust(bottom=0, right=1, top=1, left=0)
-    
+
     # plot control points and connecting lines
     #x, y = zip(*path.vertices)
     #line, = ax.plot(x, y, 'go-')
-    
+
     # --- Convert figure to Numpy Arr --- #
     fig.canvas.draw()
     # Get the RGBA buffer from the figure
     w, h   = fig.canvas.get_width_height()
     buf    = np.fromstring ( fig.canvas.tostring_argb(), dtype=np.uint8 )
     buf.shape = ( h, w, 4 )
-     
-    # canvas.tostring_argb give pixmap in ARGB mode. 
+
+    # canvas.tostring_argb give pixmap in ARGB mode.
     # Roll the ALPHA channel to have it in RGBA mode.
     buf = np.roll(buf, 3, axis = 2)
-    
+
     # Save
     #misc.toimage(buf, cmin=0.0, cmax=255.0).save('test_imgs/sample.jpg')
-    
+
     plt.clf()
     plt.close()
-    
+
     return buf[:,:,0:3]
 
 #==============================================================================
