@@ -48,6 +48,36 @@ def sub_plot_history(history, preds, data, idx, h_type=2, y_lim=()):
         plt.ylim(y_lim)
     plt.show()
 
+def sub_plot_history2(history, preds, data, idx, h_type=2, y_lim=()):
+    risk   = data['Ys'][idx,0].flatten()
+    labl   = data['Ys'][idx,4].flatten()
+    low_i  = labl == 0
+    high_i = labl == 1
+    plt.figure(figsize=(12,5))
+    plt.subplot(1, 2, 1)
+    plt.plot(history.history['loss'])
+    plt.plot(history.history['val_loss'])
+    plt.title('Training history')
+    plt.ylabel('loss');  plt.xlabel('epoch')
+    plt.legend(['train', 'valid'], loc='upper right')
+
+    c_ind = np.round(concordance_index(data['Ys'][idx,1], preds),3)
+    if c_ind < 0.5:
+        c_ind = 1-c_ind
+    auc = np.round(roc_auc_score(labl, preds), 2)
+    if auc < 0.5:
+        auc = 1-auc
+    plt.subplot(1, 2, 2)
+    plt.plot(risk[high_i], preds[high_i], '.', c='r', alpha=0.75)
+    plt.plot(risk[low_i], preds[low_i], '.', c='b', alpha=0.75)
+    plt.title('C_ind: %s, AUC: %s' % (str(c_ind), str(auc)))
+    plt.xlabel('Risk')
+    plt.ylabel('Predicted Risk')
+    plt.legend(['Non-Survivors', 'Survivors'], loc=2)
+    if len(y_lim):
+        plt.ylim(y_lim)
+    plt.show()
+
 def plot_history(history):
     plt.plot(history.history['loss'])
     plt.plot(history.history['val_loss'])
